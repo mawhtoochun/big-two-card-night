@@ -69,6 +69,7 @@ input.code{width:100%;box-sizing:border-box;background:#06201a;color:var(--fg);b
 table.sc{width:100%;border-collapse:collapse;margin:8px 0}table.sc td,table.sc th{padding:6px 8px;text-align:right;border-bottom:1px solid #ffffff14;font-size:17px}table.sc td:first-child,table.sc th:first-child{text-align:left}
 .hist{display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow-y:auto}.he{display:flex;align-items:center;gap:8px;background:#06201a;border-radius:6px;padding:6px 9px;flex-wrap:wrap}.he b{font-weight:600;min-width:52px}.he .hd{color:var(--fg);flex:1;min-width:90px;font-size:15px}.he .hd.dim{color:var(--dim)}.hc{display:flex;--cw:30px}.hc .card{margin-left:-11px;box-shadow:0 1px 3px #000a}.hc .card:first-child{margin-left:0}
 .pos{color:var(--gold)}.neg{color:var(--bad)}
+#flash{position:absolute;inset:0;z-index:11;pointer-events:none;border:6px solid var(--gold);box-shadow:inset 0 0 40px 8px var(--gold);opacity:0;display:none}#flash.on{display:block;animation:fl 1.4s ease-out}@keyframes fl{0%{opacity:.95}30%{opacity:.2}50%{opacity:.8}100%{opacity:0}}
 #toast{position:fixed;left:50%;bottom:30%;transform:translateX(-50%);z-index:40;background:var(--panel);border:1px solid var(--gold);border-radius:6px;padding:9px 16px;font:600 17px var(--ui);display:none;max-width:86vw;text-align:center}
 @media (max-height:520px){.mid{grid-template-columns:90px 1fr 90px}:root{--cw:44px}.seat .av{width:32px;height:32px;font-size:15px}.hand{padding-top:16px}}
 @media (prefers-reduced-motion:reduce){.pile .card{animation:none}.seat.turn .av{animation:none}}
@@ -76,7 +77,7 @@ table.sc{width:100%;border-collapse:collapse;margin:8px 0}table.sc td,table.sc t
 <div id="app">
  <div class="bar"><b>Big Two</b><div class="rt"><button class="sm" data-a="history">History</button><button class="sm" data-a="rules">Rules</button><button class="sm" data-a="menu">Menu</button></div></div>
  <div id="table">
-  <div id="prompt" hidden></div>
+  <div id="flash"></div><div id="prompt" hidden></div>
   <div class="mid">
    <div class="top" id="s2"></div>
    <div class="left" id="s1"></div>
@@ -197,6 +198,12 @@ function botChoose(G,seat,noPass){var hand=G.hands[seat].slice().sort(function(a
 var BOTN=['Ruby','Kai','Mina'];
 var M={cust:{},auto:false,autoKey:null,autoT:null,justDragged:false,paused:false,mode:null,names:['Player 1','Ruby','Kai','Mina'],human:[true,false,false,false],n:4,me:0,viewer:0,G:null,scores:[0,0,0,0],round:1,sel:[],sortBy:'rank',botT:null,hot:false,seenOver:-1};
 var ON={net:null,peer:null,conn:null,conns:{},db:null,user:null,ref:null,code:null,doc:null,myId:null,isHost:false,unsub:null,names:{},writing:false,botMove:-1};
+var AC=null,T0=document.title;
+function actx(){try{if(!AC){var C=window.AudioContext||window.webkitAudioContext;if(C)AC=new C()}if(AC&&AC.state==='suspended')AC.resume()}catch(e){}return AC}
+['pointerdown','keydown'].forEach(function(ev){document.addEventListener(ev,actx,{passive:true})});
+function ding(){var a=actx();if(!a)return;try{[660,880].forEach(function(f,i){var o=a.createOscillator(),g=a.createGain(),t=a.currentTime+i*.16;o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(.35,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.3);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+.32)})}catch(e){}}
+function turnAlert(){ding();try{if(navigator.vibrate)navigator.vibrate([180,80,180])}catch(e){}var f=$('flash');f.classList.remove('on');void f.offsetWidth;f.classList.add('on');if(document.hidden){document.title='\u25B6 YOUR TURN!'}}
+document.addEventListener('visibilitychange',function(){if(!document.hidden)document.title=T0});
 function toast(t,ms){var e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){e.style.display='none'},ms||1500)}
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 /* ---------- rendering ---------- */
@@ -217,6 +224,7 @@ function render(){if(!M.G||!M.mode){return}var G=M.G,n=G.n,me=viewSeat();$('tabl
  M.sel=M.sel.filter(function(c){return hand.indexOf(c)>=0});
  hd.innerHTML=rows.map(function(r){return'<div class="hr">'+r.map(function(c){return cardEl(c,M.sel.indexOf(c)>=0?'sel':'')}).join('')+'</div>'}).join('');
  var myTurn=G.turn===me&&!G.over,chk=myTurn&&M.sel.length?check(G,me,M.sel):null;
+ var ak=G.over?'':G.move+':'+me+':'+G.turn;if(myTurn&&M.mode!=='hot'&&M.alertK!==ak){M.alertK=ak;turnAlert()}else if(!myTurn)M.alertK='';
  $('msg').innerHTML=G.over?'<b>Round over</b>':myTurn?(!chk&&G.last&&G.pile.length&&!canBeat(G,me)?'<span class="bad">Nothing beats it. Draw a card.</span>':chk?'<span class="'+(chk.ok?'ok':'bad')+'">'+esc(chk.msg)+'</span>':'<b>Your turn</b>'+(G.last?'':' · you lead')):'Waiting for <b>'+esc(M.names[G.turn])+'</b>';
  $('hint').textContent=M.names[me]+' (you) · '+hand.length+' cards';
  $('bplay').disabled=!(chk&&chk.ok);$('bhint').disabled=!myTurn;$('bsort').textContent='Sort: '+(M.cust[me]?'mine':M.sortBy);
