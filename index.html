@@ -16,7 +16,13 @@ button.sm{padding:7px 10px;font-size:14px}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px}
 .bar b{font:700 22px var(--disp);letter-spacing:.04em}
 .bar .rt{display:flex;gap:6px}
-#table{flex:1;display:none;flex-direction:column;min-height:0}
+#table{flex:1;display:none;flex-direction:column;min-height:0;position:relative}
+#prompt{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:12;width:min(88%,330px);text-align:center;background:linear-gradient(#123f33,#0a2a22);border:2px solid var(--gold);border-radius:12px;padding:14px 14px 16px;box-shadow:0 12px 40px #000c,0 0 0 4px #e0b45a33;animation:popin .35s cubic-bezier(.2,.9,.3,1.3) both;box-sizing:border-box}
+#prompt h3{margin:0;font:700 56px/1 var(--disp);letter-spacing:.08em;color:var(--gold)}
+#prompt p{margin:6px 0 12px;color:var(--fg);font-size:17px;line-height:1.25}
+#prompt button{width:100%;padding:17px;font-size:22px}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.8)}to{opacity:1;transform:translate(-50%,-50%)}}
+@media (prefers-reduced-motion:reduce){#prompt{animation:none}}
 .mid{flex:1;display:grid;grid-template-columns:76px 1fr 76px;grid-template-rows:auto 1fr;min-height:0;align-items:center}
 .seat{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;transition:transform .2s}
 .seat .av{width:40px;height:40px;border-radius:50%;background:#12503f;border:2px solid var(--line);display:grid;place-items:center;font:700 18px var(--disp)}
@@ -70,6 +76,7 @@ table.sc{width:100%;border-collapse:collapse;margin:8px 0}table.sc td,table.sc t
 <div id="app">
  <div class="bar"><b>Big Two</b><div class="rt"><button class="sm" data-a="history">History</button><button class="sm" data-a="rules">Rules</button><button class="sm" data-a="menu">Menu</button></div></div>
  <div id="table">
+  <div id="prompt" hidden></div>
   <div class="mid">
    <div class="top" id="s2"></div>
    <div class="left" id="s1"></div>
@@ -188,8 +195,7 @@ function botChoose(G,seat,noPass){var hand=G.hands[seat].slice().sort(function(a
  cand.sort(function(a,b){return b.info.n-a.info.n||cmp(a.info,b.info)});return cand[0].cards}
 /* ---------- app state ---------- */
 var BOTN=['Ruby','Kai','Mina'];
-var M={cust:{},auto:true,autoKey:null,autoT:null,justDragged:false,paused:false,mode:null,names:['Player 1','Ruby','Kai','Mina'],human:[true,false,false,false],n:4,me:0,viewer:0,G:null,scores:[0,0,0,0],round:1,sel:[],sortBy:'rank',botT:null,hot:false,seenOver:-1};
-try{if(localStorage.getItem('b2-auto')==='0')M.auto=false}catch(e){}
+var M={cust:{},auto:false,autoKey:null,autoT:null,justDragged:false,paused:false,mode:null,names:['Player 1','Ruby','Kai','Mina'],human:[true,false,false,false],n:4,me:0,viewer:0,G:null,scores:[0,0,0,0],round:1,sel:[],sortBy:'rank',botT:null,hot:false,seenOver:-1};
 var ON={net:null,peer:null,conn:null,conns:{},db:null,user:null,ref:null,code:null,doc:null,myId:null,isHost:false,unsub:null,names:{},writing:false,botMove:-1};
 function toast(t,ms){var e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){e.style.display='none'},ms||1500)}
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
@@ -214,7 +220,8 @@ function render(){if(!M.G||!M.mode){return}var G=M.G,n=G.n,me=viewSeat();$('tabl
  $('msg').innerHTML=G.over?'<b>Round over</b>':myTurn?(!chk&&G.last&&G.pile.length&&!canBeat(G,me)?'<span class="bad">Nothing beats it. Draw a card.</span>':chk?'<span class="'+(chk.ok?'ok':'bad')+'">'+esc(chk.msg)+'</span>':'<b>Your turn</b>'+(G.last?'':' · you lead')):'Waiting for <b>'+esc(M.names[G.turn])+'</b>';
  $('hint').textContent=M.names[me]+' (you) · '+hand.length+' cards';
  $('bplay').disabled=!(chk&&chk.ok);$('bhint').disabled=!myTurn;$('bsort').textContent='Sort: '+(M.cust[me]?'mine':M.sortBy);
- var cb=myTurn&&G.last?canBeat(G,me):true,pl=G.pile.length&&G.last;$('bpass').textContent=pl?(cb?'Pass & draw ('+G.pile.length+')':'Draw ('+G.pile.length+')'):'Pass';
+ var cb=myTurn&&G.last?canBeat(G,me):true,pl=G.pile.length&&G.last;
+ var pr=$('prompt'),forced=myTurn&&G.last&&!cb;if(forced&&!M.paused){var dr=G.pile.length>0,pk=(dr?'d':'p')+G.move+':'+me;pr.hidden=false;if(pr.dataset.k!==pk){pr.dataset.k=pk;pr.innerHTML='<h3>'+(dr?'DRAW':'PASS')+'</h3><p>'+(dr?'Nothing in your hand beats it. Take one card from the pile.':'Nothing in your hand beats it. You have no choice but to pass.')+'</p><button class="pri" data-a="'+(dr?'passdraw':'pass')+'">'+(dr?'Draw a card ('+G.pile.length+' left)':'Pass')+'</button>'}}else{pr.hidden=true;pr.dataset.k=''}$('bpass').textContent=pl?(cb?'Pass & draw ('+G.pile.length+')':'Draw ('+G.pile.length+')'):'Pass';
  $('bpass').dataset.a=pl?'passdraw':'pass';$('bpass').disabled=!(myTurn&&G.last);
  if(G.over&&M.seenOver!==G.move){M.seenOver=G.move;setTimeout(showOver,700)}
  afterRender()}
@@ -252,7 +259,7 @@ function autoCheck(){var G=M.G;if(!G||!M.auto||M.paused||G.over||!G.last)return;
  if(canBeat(G,me))return;var key=G.move+':'+me;if(M.autoKey===key)return;M.autoKey=key;var drawing=G.pile.length>0;toast(drawing?'Nothing beats it. Drawing a card...':'Nothing beats it. Passing...',1300);
  clearTimeout(M.autoT);M.autoT=setTimeout(function(){var g=M.G;if(!g||g.over||g.turn!==viewSeat()||(g.move+':'+viewSeat())!==key){M.autoKey=null;return}if(M.paused||$('ov').style.display==='flex'){M.autoKey=null;return}act(viewSeat(),g.pile.length?'passdraw':null)},1300)}
 /* ---------- actions ---------- */
-function afterRender(){if(M.mode==='hot')hotCover();schedBot();autoCheck()}
+function afterRender(){if(M.mode==='hot')hotCover();schedBot()}
 function hotCover(){var G=M.G;if(!G||G.over)return;if(M.human[G.turn]&&G.turn!==M.viewer&&$('ov').dataset.hot!=='1'){$('ov').dataset.hot='1';openBox('<h2>Pass the phone to '+esc(M.names[G.turn])+'</h2><p class="c">Everyone else look away. Tap when ready.</p><div class="stack"><button class="pri" data-a="reveal">I am '+esc(M.names[G.turn])+'</button></div>')}}
 function newRound(deal0){M.cust={};M.G=deal0||deal(M.n);M.sel=[];M.seenOver=-1;M.viewer=M.mode==='hot'?M.G.turn:M.me;$('pile').dataset.k='';render()}
 function startLocal(mode,humans){M.mode=mode;
@@ -338,7 +345,7 @@ document.addEventListener('click',function(ev){var t=ev.target.closest('[data-a]
  else if(a==='histall'){openBox(histHTML(false))}
  else if(a==='histmine'){openBox(histHTML(true))}
  else if(a==='scores')openBox(scoresHTML());
- else if(a==='menu'){if(M.mode&&(M.G||ON.doc)){M.paused=true;var host=M.mode==='online'&&ON.isHost;openBox('<h2>Paused</h2><div class="stack"><button class="pri" data-a="resume">Resume game</button><button data-a="scores">Scores</button><button data-a="rules">Rules</button><button class="sm" data-a="autotoggle">Auto-pass when nothing beats it: '+(M.auto?'ON':'OFF')+'</button><button class="sm" data-a="leaveask">Leave game</button></div>')}else openBox(menuHTML())}
+ else if(a==='menu'){if(M.mode&&(M.G||ON.doc)){M.paused=true;var host=M.mode==='online'&&ON.isHost;openBox('<h2>Paused</h2><div class="stack"><button class="pri" data-a="resume">Resume game</button><button data-a="scores">Scores</button><button data-a="rules">Rules</button><button class="sm" data-a="leaveask">Leave game</button></div>')}else openBox(menuHTML())}
  else if(a==='autotoggle'){M.auto=!M.auto;try{localStorage.setItem('b2-auto',M.auto?'1':'0')}catch(e){}M.autoKey=null;document.querySelector('.bar [data-a=menu]').click()}
  else if(a==='resume'){closeBox();if(M.mode==='online'&&!M.G&&ON.doc)onDoc()}
  else if(a==='leaveask'){var h2=M.mode==='online'&&ON.isHost;openBox('<h2>Leave the game?</h2><p class="c">'+(h2?'You are the host, so the table closes for everyone.':M.mode==='online'?'Your seat will be played for you.':'This round will be lost.')+'</p><div class="stack"><button class="pri" data-a="resume">Keep playing</button><button class="sm" data-a="leave">Yes, leave</button></div>')}
